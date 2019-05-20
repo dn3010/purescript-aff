@@ -56,6 +56,12 @@ var Aff = function () {
   var FIBER     = "Fiber";     // Actual fiber reference
   var THUNK     = "Thunk";     // Primed effect, ready to invoke
 
+  // Error used for early cancelation on Alt branches.
+  // This is initialized here (rather than in the Fiber constructor) because
+  // otherwise, in V8, this Error object indefinitely hangs on to memory that
+  // otherwise would be garbage collected.
+  var early = new Error("[ParAff] Early exit");
+
   function Aff(tag, _1, _2, _3) {
     this.tag = tag;
     this._1  = _1;
@@ -324,24 +330,41 @@ var Aff = function () {
 
           case ASYNC:
             status = PENDING;
-            step   = runAsync(util.left, step._1, function (result) {
-              return function () {
-                if (runTick !== localRunTick) {
-                  return;
-                }
-                runTick++;
-                Scheduler.enqueue(function () {
-                  // It's possible to interrupt the fiber between enqueuing and
-                  // resuming, so we need to check that the runTick is still
-                  // valid.
-                  if (runTick !== localRunTick + 1) {
+            tmp = step._1;
+            step = nonCanceler;
+            Scheduler.enqueue(function () {
+              if (runTick !== localRunTick) {
+                return;
+              }
+              var skipRun = true;
+              var canceler = runAsync(util.left, tmp, function (result) {
+                return function () {
+                  if (runTick !== localRunTick) {
                     return;
                   }
+                  ++runTick;
                   status = STEP_RESULT;
-                  step   = result;
-                  run(runTick);
-                });
-              };
+                  step = result;
+                  // Do not recurse on run if we are synchronous with runAsync. 
+                  if (skipRun) {
+                    skipRun = false;
+                  } else {
+                    run(runTick);
+                  }
+                };
+              });
+              // Only update the canceler if the asynchronous action has not
+              // resolved synchronously. If it has, then the next status and
+              // step have already been set.
+              if (skipRun) {
+                step = canceler;
+                skipRun = false;
+              }
+              // If runAsync already resolved then the next step needs to be
+              // run.
+              else {
+                run(runTick);
+              }
             });
             return;
 
@@ -648,9 +671,6 @@ var Aff = function () {
     // Table of currently running cancelers, as a product of `Alt` behavior.
     var killId    = 0;
     var kills     = {};
-
-    // Error used for early cancelation on Alt branches.
-    var early     = new Error("[ParAff] Early exit");
 
     // Error used to kill the entire tree.
     var interrupt = null;

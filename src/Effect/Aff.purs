@@ -86,8 +86,11 @@ instance monoidAff ∷ Monoid a ⇒ Monoid (Aff a) where
 instance altAff ∷ Alt Aff where
   alt a1 a2 = catchError a1 (const a2)
 
+alwaysFailsError ∷ Error
+alwaysFailsError = error "Always fails"
+
 instance plusAff ∷ Plus Aff where
-  empty = throwError (error "Always fails")
+  empty = throwError alwaysFailsError
 
 -- | This instance is provided for compatibility. `Aff` is always stack-safe
 -- | within a given fiber. This instance will just result in unnecessary
@@ -306,6 +309,9 @@ type Supervised a =
   , supervisor ∷ Supervisor
   }
 
+parentOutlivedError ∷ Error
+parentOutlivedError = error "[Aff] Child fiber outlived parent"
+
 -- | Creates a new supervision context for some `Aff`, guaranteeing fiber
 -- | cleanup when the parent completes. Any pending fibers forked within
 -- | the context will be killed and have their cancelers run.
@@ -313,14 +319,11 @@ supervise ∷ ∀ a. Aff a → Aff a
 supervise aff =
   generalBracket (liftEffect acquire)
     { killed: \err sup → parSequence_ [ killFiber err sup.fiber, killAll err sup ]
-    , failed: const (killAll killError)
-    , completed: const (killAll killError)
+    , failed: const (killAll parentOutlivedError)
+    , completed: const (killAll parentOutlivedError)
     }
     (joinFiber <<< _.fiber)
   where
-  killError ∷ Error
-  killError =
-    error "[Aff] Child fiber outlived parent"
 
   killAll ∷ Error → Supervised a → Aff Unit
   killAll err sup = makeAff \k →
