@@ -19,4 +19,8 @@
     ./packages.dhall
 , sources =
     [ "src/**/*.purs", "test/**/*.purs" ]
+, license =
+    "UNLICENSED"
+, repository =
+    "git@github.com:dn3010/purescript-aff"
 }

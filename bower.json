@@ -1,0 +1,31 @@
+{
+    "name": "purescript-aff",
+    "license": [
+        "UNLICENSED"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:dn3010/purescript-aff"
+    },
+    "ignore": [
+        "**/.*",
+        "node_modules",
+        "bower_components",
+        "output"
+    ],
+    "dependencies": {
+        "purescript-assert": "^v4.1.0",
+        "purescript-console": "^v4.2.0",
+        "purescript-datetime": "^v4.1.1",
+        "purescript-effect": "^v2.0.1",
+        "purescript-exceptions": "^v4.0.0",
+        "purescript-free": "^v5.2.0",
+        "purescript-functions": "^v4.0.0",
+        "purescript-minibench": "^v2.0.0",
+        "purescript-parallel": "^v4.0.0",
+        "purescript-partial": "^v2.0.1",
+        "purescript-psci-support": "^v4.0.0",
+        "purescript-transformers": "^v4.2.0",
+        "purescript-unsafe-coerce": "^v4.0.0"
+    }
+}
